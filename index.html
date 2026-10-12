@@ -176,7 +176,7 @@ const mecV=()=>'<button class="lnk" data-a="home">← Volver</button><h1>Mecáni
 +(mechs.length?mechs.map((n,i)=>'<div class="card" style="display:flex;justify-content:space-between;align-items:center"><span>👷 '+esc(n)+'</span><button class="lnk dn" data-a="mdel" data-i="'+i+'">Quitar</button></div>').join(''):'<p class="mut">Aún no hay mecánicos.</p>');
 async function saveMechs(l){
   l.sort((a,b)=>a.localeCompare(b,'es'));
-  try{await db.doc('meta/mechanics').set({names:l});mechs=l;render()}
+  try{localStorage.setItem('meta_mech',JSON.stringify({names:l}));mechs=l;render()}
   catch(e){toast('No se pudo guardar: '+(e.code||e.message))}
 }
 function addMech(){
@@ -221,7 +221,7 @@ async function runBak(todo){
       if(size>50e6)ok=await flush();
     }
     if(ok)ok=await flush();
-    if(ok){await db.doc('meta/backup').set({t:start,fotos:items.length,carpetas:fold.size});setBk('Listo: '+items.length+' fotos respaldadas. Revisa que los ZIP estén en Archivos.')}
+    if(ok){localStorage.setItem('meta_backup',JSON.stringify({t:start,fotos:items.length,carpetas:fold.size}));setBk('Listo: '+items.length+' fotos respaldadas. Revisa que los ZIP estén en Archivos.')}
     else setBk('Respaldo interrumpido. No se marcó como completado.');
   }catch(e){setBk('Error: '+(e.code||e.message))}
   bkbusy=false;if(view.n==='bak')render(true);
@@ -239,7 +239,7 @@ async function create(){
   ;
   const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
   const r={id,cliente:v('cliente'),tienda:v('tienda'),unidad:v('unidad'),localizacion:v('loc'),fecha:v('fecha')||nowLocal(),mecanico:v('mec'),notas:v('notas'),fotos:[]};if(coords)r.coords=coords;
-  try{await db.doc('repairs/'+id).set(r);repairs.unshift(r);coords=null;view={n:'f',id};render()}
+  try{localStorage.setItem('repair_'+id,JSON.stringify(r));repairs.unshift(r);coords=null;view={n:'f',id};render()}
   catch(e){toast('No se pudo guardar: '+(e.code||e.message))}
 }
 async function addPhotos(files,fromCam){
@@ -251,7 +251,7 @@ async function addPhotos(files,fromCam){
       const a=await assets.upload(b,{type:b.type||'image/jpeg'});
       const r=byId(id);
       const fotos=(r.fotos||[]).concat([{id:a.id,tipo,t:fromCam?new Date().toISOString():new Date(files[i].lastModified||Date.now()).toISOString(),u:new Date().toISOString()}]);
-      await db.doc('repairs/'+id).update({fotos});if(gal&&fromCam)saveFile(fname(r)+'_'+fotos.length+'-'+safe(tipo)+'.'+ext(b),b);
+      const rD=JSON.parse(localStorage.getItem('repair_'+id)||'{}');rD.fotos=fotos;localStorage.setItem('repair_'+id,JSON.stringify(rD));if(gal&&fromCam)saveFile(fname(r)+'_'+fotos.length+'-'+safe(tipo)+'.'+ext(b),b);
       r.fotos=fotos;
       if(view.id===id)render();
     }catch(e){toast('Error al subir: '+(e.code||e.message))}
@@ -272,7 +272,7 @@ async function delFoto(i,btn){
 async function delRep(btn){
   if(!sure('r',btn,'Borrar esta carpeta'))return;
   const r=byId(view.id);
-  try{await db.doc('repairs/'+r.id).delete();(r.fotos||[]).forEach(p=>assets.delete(p.id).catch(()=>{}));view={n:'list'};render()}
+  try{localStorage.removeItem('repair_'+r.id);(r.fotos||[]).forEach(p=>assets.delete(p.id).catch(()=>{}));view={n:'list'};render()}
   catch(e){toast('No se pudo borrar: '+(e.code||e.message))}
 }
 
@@ -330,7 +330,7 @@ document.addEventListener('change',e=>{
   const id=e.target.id;
   if(id==='i_cam'||id==='i_gal'){const fs=[...e.target.files];e.target.value='';if(fs.length)addPhotos(fs,id==='i_cam')}
   else if(id==='c_gal'){gal=e.target.checked;try{localStorage.setItem('gal',gal?'1':'0')}catch(x){}}
-  else if(id==='s_mec'){const v=e.target.value,rid=view.id;db.doc('repairs/'+rid).update({mecanico:v}).then(()=>{const r=byId(rid);if(r)r.mecanico=v}).catch(er=>toast('No se pudo guardar: '+(er.code||er.message)))}
+  else if(id==='s_mec'){const v=e.target.value,rid=view.id;const rD=JSON.parse(localStorage.getItem('repair_'+rid)||'{}');rD.mecanico=v;localStorage.setItem('repair_'+rid,JSON.stringify(rD));const r=byId(rid);if(r)r.mecanico=v;}
 });
 document.addEventListener('input',e=>{if(e.target.id==='q'){q=e.target.value;$('#lst').innerHTML=lst()}});
 
@@ -341,8 +341,8 @@ render();
   ready=true;
   if(!db){render();return}
   render();
-  db.doc('meta/mechanics').onSnapshot(d=>{const x=d.exists&&d.data();mechs=(x&&x.names)||[];if(view.n!=='mec'&&view.n!=='new')render(true)},()=>{});
-  db.doc('meta/backup').onSnapshot(d=>{bak=d.exists?d.data():null;if(view.n==='bak'&&!bkbusy)render(true)},()=>{});
+  ;
+  ;
   db.collection('repairs').onSnapshot(s=>{
     repairs=s.docs.map(d=>d.data()).filter(Boolean).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
     render(true);
