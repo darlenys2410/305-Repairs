@@ -248,7 +248,14 @@ async function addPhotos(files,fromCam){
     busy='Subiendo '+(i+1)+' de '+files.length+'…';const b0=$('#busy');if(b0)b0.textContent=busy;
     try{
       const b=await shrink(files[i]);
-      const a=await assets.upload(b,{type:b.type||'image/jpeg'});
+      const photoId='photo_'+Date.now()+'_'+Math.random().toString(36).substr(2,9);
+      const reader=new FileReader();
+      const a={id:photoId};
+      reader.onload=()=>{
+        const base64=reader.result;
+        localStorage.setItem('photo_'+photoId,base64);
+      };
+      reader.readAsDataURL(b);
       const r=byId(id);
       const fotos=(r.fotos||[]).concat([{id:a.id,tipo,t:fromCam?new Date().toISOString():new Date(files[i].lastModified||Date.now()).toISOString(),u:new Date().toISOString()}]);
       const rD=JSON.parse(localStorage.getItem('repair_'+id)||'{}');rD.fotos=fotos;localStorage.setItem('repair_'+id,JSON.stringify(rD));if(gal&&fromCam)saveFile(fname(r)+'_'+fotos.length+'-'+safe(tipo)+'.'+ext(b),b);
