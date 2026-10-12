@@ -346,6 +346,6 @@ render();
   db.collection('repairs').onSnapshot(s=>{
     repairs=s.docs.map(d=>d.data()).filter(Boolean).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
     render(true);
-  },e=>toast('Error de datos: '+(e.code||e.message)));
+  };
 })();
 </script></body></html>
