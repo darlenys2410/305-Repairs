@@ -49,7 +49,7 @@ const TIPOS=['Equipo','Antes','Durante','Después'];
 let lang=localStorage.getItem('lang')||'es';
 const trans={'es':{'title':'Reparaciones','share':'📤 Compartir','download':'⬇️ Descargar','download_folder':'⬇️ Descargar carpeta','download_all':'⬇️ Descargar todas','select_all':'☑️ Seleccionar todas','close':'Cerrar','prepare':'Preparando…','confirm':'Toca de nuevo para confirmar','ready_to_send':'Listo · toca para enviar','delete_photo':'Borrar foto','finding_location':'Buscando ubicación…','location_denied':'Ubicación no permitida. Escríbela a mano o activa el permiso.','location_error':'No se pudo obtener la ubicación. Escríbela a mano.','download_not_available':'Descargar no está disponible aquí.','download_failed':'No se pudo descargar: ','cannot_prepare':'No se pudieron preparar las fotos.'},'en':{'title':'Repairs','share':'📤 Share','download':'⬇️ Download','download_folder':'⬇️ Download folder','download_all':'⬇️ Download all','select_all':'☑️ Select all','close':'Close','prepare':'Preparing…','confirm':'Tap again to confirm','ready_to_send':'Ready · tap to send','delete_photo':'Delete photo','finding_location':'Finding location…','location_denied':'Location denied. Enter manually or enable permission.','location_error':'Could not get location. Enter manually.','download_not_available':'Download is not available here.','download_failed':'Could not download: ','cannot_prepare':'Could not prepare photos.'}};
 const t=k=>trans[lang]?.[k]||k;
-let db=null,assets=null,photoSelection={},repairs=[],view={n:'list'},q='',tipo='Antes',busy='',armed=null,coords=null,mechs=["Técnico 1","Técnico 2","Técnico 3","Técnico 4","Técnico 5"],gal=false,bak=null,bkmsg='',bkbusy=false;
+let db=null,assets=null,photoSelection={},repairs=[],view={n:'list'},q='',tipo='Antes',busy='',armed=null,coords=null,mechs=["Técnico 1","Técnico 2","Técnico 3","Técnico 4","Técnico 5"],gal=true,bak=null,bkmsg='',bkbusy=false;
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const nowLocal=()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16)};
 const fmt=s=>{const d=new Date(s);return isNaN(d)?(s||''):d.toLocaleString('es',{dateStyle:'medium',timeStyle:'short'})};
@@ -176,7 +176,7 @@ const mecV=()=>'<button class="lnk" data-a="home">← Volver</button><h1>Mecáni
 +(mechs.length?mechs.map((n,i)=>'<div class="card" style="display:flex;justify-content:space-between;align-items:center"><span>👷 '+esc(n)+'</span><button class="lnk dn" data-a="mdel" data-i="'+i+'">Quitar</button></div>').join(''):'<p class="mut">Aún no hay mecánicos.</p>');
 async function saveMechs(l){
   l.sort((a,b)=>a.localeCompare(b,'es'));
-  try{localStorage.setItem('meta_mech',JSON.stringify({names:l}));mechs=l;render()}
+  try{await db.doc('meta/mechanics').set({names:l});mechs=l;render()}
   catch(e){toast('No se pudo guardar: '+(e.code||e.message))}
 }
 function addMech(){
@@ -221,7 +221,7 @@ async function runBak(todo){
       if(size>50e6)ok=await flush();
     }
     if(ok)ok=await flush();
-    if(ok){localStorage.setItem('meta_backup',JSON.stringify({t:start,fotos:items.length,carpetas:fold.size}));setBk('Listo: '+items.length+' fotos respaldadas. Revisa que los ZIP estén en Archivos.')}
+    if(ok){await db.doc('meta/backup').set({t:start,fotos:items.length,carpetas:fold.size});setBk('Listo: '+items.length+' fotos respaldadas. Revisa que los ZIP estén en Archivos.')}
     else setBk('Respaldo interrumpido. No se marcó como completado.');
   }catch(e){setBk('Error: '+(e.code||e.message))}
   bkbusy=false;if(view.n==='bak')render(true);
@@ -239,7 +239,7 @@ async function create(){
   ;
   const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
   const r={id,cliente:v('cliente'),tienda:v('tienda'),unidad:v('unidad'),localizacion:v('loc'),fecha:v('fecha')||nowLocal(),mecanico:v('mec'),notas:v('notas'),fotos:[]};if(coords)r.coords=coords;
-  try{localStorage.setItem('repair_'+id,JSON.stringify(r));repairs.unshift(r);coords=null;view={n:'f',id};render()}
+  try{await db.doc('repairs/'+id).set(r);repairs.unshift(r);coords=null;view={n:'f',id};render()}
   catch(e){toast('No se pudo guardar: '+(e.code||e.message))}
 }
 async function addPhotos(files,fromCam){
@@ -248,17 +248,10 @@ async function addPhotos(files,fromCam){
     busy='Subiendo '+(i+1)+' de '+files.length+'…';const b0=$('#busy');if(b0)b0.textContent=busy;
     try{
       const b=await shrink(files[i]);
-      const photoId='photo_'+Date.now()+'_'+Math.random().toString(36).substr(2,9);
-      const reader=new FileReader();
-      const a={id:photoId};
-      reader.onload=()=>{
-        const base64=reader.result;
-        localStorage.setItem('photo_'+photoId,base64);
-      };
-      reader.readAsDataURL(b);
+      const a=await assets.upload(b,{type:b.type||'image/jpeg'});
       const r=byId(id);
       const fotos=(r.fotos||[]).concat([{id:a.id,tipo,t:fromCam?new Date().toISOString():new Date(files[i].lastModified||Date.now()).toISOString(),u:new Date().toISOString()}]);
-      const rD=JSON.parse(localStorage.getItem('repair_'+id)||'{}');rD.fotos=fotos;localStorage.setItem('repair_'+id,JSON.stringify(rD));if(gal&&fromCam)saveFile(fname(r)+'_'+fotos.length+'-'+safe(tipo)+'.'+ext(b),b);
+      await db.doc('repairs/'+id).update({fotos});if(gal&&fromCam)saveFile(fname(r)+'_'+fotos.length+'-'+safe(tipo)+'.'+ext(b),b);
       r.fotos=fotos;
       if(view.id===id)render();
     }catch(e){toast('Error al subir: '+(e.code||e.message))}
@@ -279,7 +272,7 @@ async function delFoto(i,btn){
 async function delRep(btn){
   if(!sure('r',btn,'Borrar esta carpeta'))return;
   const r=byId(view.id);
-  try{localStorage.removeItem('repair_'+r.id);(r.fotos||[]).forEach(p=>assets.delete(p.id).catch(()=>{}));view={n:'list'};render()}
+  try{await db.doc('repairs/'+r.id).delete();(r.fotos||[]).forEach(p=>assets.delete(p.id).catch(()=>{}));view={n:'list'};render()}
   catch(e){toast('No se pudo borrar: '+(e.code||e.message))}
 }
 
@@ -337,7 +330,7 @@ document.addEventListener('change',e=>{
   const id=e.target.id;
   if(id==='i_cam'||id==='i_gal'){const fs=[...e.target.files];e.target.value='';if(fs.length)addPhotos(fs,id==='i_cam')}
   else if(id==='c_gal'){gal=e.target.checked;try{localStorage.setItem('gal',gal?'1':'0')}catch(x){}}
-  else if(id==='s_mec'){const v=e.target.value,rid=view.id;const rD=JSON.parse(localStorage.getItem('repair_'+rid)||'{}');rD.mecanico=v;localStorage.setItem('repair_'+rid,JSON.stringify(rD));const r=byId(rid);if(r)r.mecanico=v;}
+  else if(id==='s_mec'){const v=e.target.value,rid=view.id;db.doc('repairs/'+rid).update({mecanico:v}).then(()=>{const r=byId(rid);if(r)r.mecanico=v}).catch(er=>toast('No se pudo guardar: '+(er.code||er.message)))}
 });
 document.addEventListener('input',e=>{if(e.target.id==='q'){q=e.target.value;$('#lst').innerHTML=lst()}});
 
@@ -348,8 +341,8 @@ render();
   ready=true;
   if(!db){render();return}
   render();
-  ;
-  ;
+  db.doc('meta/mechanics').onSnapshot(d=>{const x=d.exists&&d.data();mechs=(x&&x.names)||[];if(view.n!=='mec'&&view.n!=='new')render(true)},()=>{});
+  db.doc('meta/backup').onSnapshot(d=>{bak=d.exists?d.data():null;if(view.n==='bak'&&!bkbusy)render(true)},()=>{});
   db.collection('repairs').onSnapshot(s=>{
     repairs=s.docs.map(d=>d.data()).filter(Boolean).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
     render(true);
