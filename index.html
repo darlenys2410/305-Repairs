@@ -93,7 +93,7 @@ function folV(){
 }
 function render(fromSnap){
   if(fromSnap&&view.n==='new')return;
-  if(!db){app.innerHTML=hdr()+'<p class="mut">'+(ready?'Para usar la app, inicia sesión en Claude con una cuenta que tenga acceso. Si no puedes entrar, pide acceso al administrador.':'Cargando…')+'</p>';return}
+  if(!db){db={};assets={}}
   app.innerHTML=hdr()+(view.n==='new'?newV():view.n==='f'?folV():view.n==='mec'?mecV():view.n==='bak'?bakV():listV());
 }
 
