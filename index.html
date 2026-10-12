@@ -88,7 +88,7 @@ function folV(){
   +'<div class="row"><button class="pri" data-a="cam">📷 Tomar foto</button><button data-a="gal">🖼 Galería</button></div>'
   +'<label class="chk"><input type="checkbox" id="c_gal"'+(gal?' checked':'')+'>Guardar también en la galería del teléfono (pide confirmar)</label><input id="i_cam" type="file" accept="image/*" capture="environment" hidden><input id="i_gal" type="file" accept="image/*" multiple hidden>':'<p class="mut">Solo lectura.</p>')
   +'<div id="busy" class="mut">'+busy+'</div>'+(f.length?'<div class="row"><button data-a="share">📤 Compartir</button><button data-a="zip">⬇️ Descargar carpeta</button></div>':'')
-  +'<div class="grid">'+f.map((p,i)=>'<figure data-a="view" data-i="'+i+'"><img loading="lazy" src="/_blob/'+p.id+'" alt=""><figcaption>'+esc(p.tipo)+' · '+esc(hm(p.t))+'</figcaption></figure>').join('')+'</div>'
+  +'<div class="grid">'+f.map((p,i)=>'<figure data-a="view" data-i="'+i+'"><img loading="lazy" src="'+localStorage.getItem('photo_'+p.id)+'" alt=""><figcaption>'+esc(p.tipo)+' · '+esc(hm(p.t))+'</figcaption></figure>').join('')+'</div>'
   +(assets?'<div style="margin-top:2rem"><button class="lnk dn" data-a="delrep">Borrar esta carpeta</button></div>':'');
 }
 function render(fromSnap){
@@ -260,7 +260,7 @@ async function addPhotos(files,fromCam){
 }
 function show(i){
   const p=byId(view.id).fotos[i],o=document.createElement('div');o.className='ov';
-  o.innerHTML='<img src="/_blob/'+p.id+'" alt=""><div class="row"><button data-a="close">Cerrar</button><button data-a="sharefoto" data-i="'+i+'">📤 Compartir</button><button data-a="dlfoto" data-i="'+i+'">⬇️ Descargar</button>'+(assets?'<button class="dn" data-a="delfoto" data-i="'+i+'">Borrar foto</button>':'')+'</div>';
+  o.innerHTML='<img src="'+localStorage.getItem('photo_'+p.id)+'" alt=""><div class="row"><button data-a="close">Cerrar</button><button data-a="sharefoto" data-i="'+i+'">📤 Compartir</button><button data-a="dlfoto" data-i="'+i+'">⬇️ Descargar</button>'+(assets?'<button class="dn" data-a="delfoto" data-i="'+i+'">Borrar foto</button>':'')+'</div>';
   document.body.append(o);
 }
 async function delFoto(i,btn){
